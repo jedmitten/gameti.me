@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OurTime — Create Event</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="/" class="app-title">OurTime</a>
+    <a href="/me" class="btn btn-secondary btn-sm">My Account</a>
+  </header>
+  <main class="container" style="padding-top:2rem; padding-bottom:4rem">
+    <div x-data="createEvent()" x-init="init()">
+
+      <!-- FORM STEP -->
+      <div x-show="step === 'form'">
+        <h1 style="font-size:1.75rem; font-weight:700; margin-bottom:1.5rem;">Create a Scheduling Event</h1>
+
+        <!-- Basic Info Card -->
+        <div class="card">
+          <div class="form-group">
+            <label for="event-title">Event Title <span style="color:var(--color-no)">*</span></label>
+            <input
+              id="event-title"
+              type="text"
+              class="input"
+              placeholder="e.g. Team Standup, Dinner Plans..."
+              x-model="title"
+              maxlength="200"
+            >
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label for="event-desc">Description <span class="text-muted text-sm">(optional)</span></label>
+            <textarea
+              id="event-desc"
+              class="input"
+              placeholder="Any details respondents should know..."
+              x-model="description"
+              maxlength="1000"
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Timezone Card -->
+        <div class="card">
+          <div class="form-group" style="margin-bottom:0">
+            <label for="event-tz">Timezone</label>
+            <select id="event-tz" class="input" x-model="timezone">
+              <optgroup label="Americas">
+                <option value="America/New_York">Eastern Time — America/New_York</option>
+                <option value="America/Chicago">Central Time — America/Chicago</option>
+                <option value="America/Denver">Mountain Time — America/Denver</option>
+                <option value="America/Los_Angeles">Pacific Time — America/Los_Angeles</option>
+                <option value="America/Anchorage">Alaska — America/Anchorage</option>
+                <option value="America/Honolulu">Hawaii — America/Honolulu</option>
+                <option value="America/Toronto">Toronto — America/Toronto</option>
+                <option value="America/Vancouver">Vancouver — America/Vancouver</option>
+                <option value="America/Sao_Paulo">São Paulo — America/Sao_Paulo</option>
+                <option value="America/Argentina/Buenos_Aires">Buenos Aires — America/Argentina/Buenos_Aires</option>
+              </optgroup>
+              <optgroup label="Europe">
+                <option value="Europe/London">London — Europe/London</option>
+                <option value="Europe/Paris">Paris — Europe/Paris</option>
+                <option value="Europe/Berlin">Berlin — Europe/Berlin</option>
+                <option value="Europe/Madrid">Madrid — Europe/Madrid</option>
+                <option value="Europe/Rome">Rome — Europe/Rome</option>
+                <option value="Europe/Amsterdam">Amsterdam — Europe/Amsterdam</option>
+                <option value="Europe/Stockholm">Stockholm — Europe/Stockholm</option>
+                <option value="Europe/Moscow">Moscow — Europe/Moscow</option>
+              </optgroup>
+              <optgroup label="Africa">
+                <option value="Africa/Cairo">Cairo — Africa/Cairo</option>
+                <option value="Africa/Johannesburg">Johannesburg — Africa/Johannesburg</option>
+              </optgroup>
+              <optgroup label="Asia">
+                <option value="Asia/Dubai">Dubai — Asia/Dubai</option>
+                <option value="Asia/Kolkata">Kolkata — Asia/Kolkata</option>
+                <option value="Asia/Bangkok">Bangkok — Asia/Bangkok</option>
+                <option value="Asia/Singapore">Singapore — Asia/Singapore</option>
+                <option value="Asia/Tokyo">Tokyo — Asia/Tokyo</option>
+                <option value="Asia/Seoul">Seoul — Asia/Seoul</option>
+                <option value="Asia/Shanghai">Shanghai — Asia/Shanghai</option>
+              </optgroup>
+              <optgroup label="Australia &amp; Pacific">
+                <option value="Australia/Sydney">Sydney — Australia/Sydney</option>
+                <option value="Australia/Melbourne">Melbourne — Australia/Melbourne</option>
+                <option value="Pacific/Auckland">Auckland — Pacific/Auckland</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+
+        <!-- Availability Window Card -->
+        <div class="card">
+          <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:.25rem;">Availability Window</h2>
+          <p class="text-muted text-sm mb-2">Respondents can select any day within this range.</p>
+
+          <div class="calendar-wrap">
+            <div class="month-header">
+              <button class="month-nav-btn" @click="prevMonth()">&#8249;</button>
+              <span x-text="pickerMonthLabel"></span>
+              <button class="month-nav-btn" @click="nextMonth()">&#8250;</button>
+            </div>
+            <div class="cal-grid">
+              <div class="cal-day-header">Su</div>
+              <div class="cal-day-header">Mo</div>
+              <div class="cal-day-header">Tu</div>
+              <div class="cal-day-header">We</div>
+              <div class="cal-day-header">Th</div>
+              <div class="cal-day-header">Fr</div>
+              <div class="cal-day-header">Sa</div>
+              <template x-for="(cell, idx) in pickerCells" :key="idx">
+                <div
+                  :class="getCellClass(cell)"
+                  @click="pickDate(cell)"
+                  x-text="cell.blank ? '' : cell.day"
+                ></div>
+              </template>
+            </div>
+          </div>
+
+          <p class="text-sm mt-2" :class="window_start && window_end ? 'text-muted' : 'text-muted'" x-text="pickerInstructions"></p>
+        </div>
+
+        <!-- Daily Time Bounds Card -->
+        <div class="card">
+          <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:.25rem;">Daily Time Bounds</h2>
+          <p class="text-muted text-sm mb-2">Respondents can mark availability between these hours each day.</p>
+          <div class="flex gap-2 items-center" style="flex-wrap:wrap">
+            <div class="form-group" style="flex:1; min-width:140px; margin-bottom:0">
+              <label>Start Hour</label>
+              <select class="input" x-model.number="day_start_hour">
+                <template x-for="opt in hourOptions" :key="opt.value">
+                  <option :value="opt.value" x-text="opt.label"></option>
+                </template>
+              </select>
+            </div>
+            <div style="padding-top:1.5rem; color:var(--color-text-muted)">to</div>
+            <div class="form-group" style="flex:1; min-width:140px; margin-bottom:0">
+              <label>End Hour</label>
+              <select class="input" x-model.number="day_end_hour">
+                <template x-for="opt in hourOptions" :key="opt.value">
+                  <option :value="opt.value" x-text="opt.label"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+          <p x-show="day_end_hour <= day_start_hour" class="alert alert-error mt-2" style="margin-bottom:0">End hour must be after start hour.</p>
+        </div>
+
+        <!-- Error Alert -->
+        <div x-show="error" class="alert alert-error mt-2" x-text="error"></div>
+
+        <!-- Submit Button -->
+        <div class="mt-3">
+          <button
+            class="btn btn-primary btn-full"
+            :disabled="!canSubmit || loading"
+            @click="submit()"
+          >
+            <span x-show="loading" class="spinner"></span>
+            <span x-text="loading ? 'Creating...' : 'Create Event'"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- SUCCESS STEP -->
+      <div x-show="step === 'success'" x-cloak>
+        <div class="card">
+          <div class="alert alert-success mb-2">
+            Event created successfully!
+          </div>
+
+          <h2 style="font-size:1.25rem; font-weight:700; margin-bottom:1.25rem;">Event created!</h2>
+
+          <div class="form-group">
+            <label>Share URL</label>
+            <p class="text-sm text-muted mb-1">Send this link to people you want to invite.</p>
+            <div class="token-row">
+              <div class="token-box" style="flex:1" x-text="result && result.share_url"></div>
+              <button
+                class="btn btn-secondary btn-sm copy-btn"
+                @click="copy(result.share_url, 'copiedShare')"
+                x-text="copiedShare ? 'Copied!' : 'Copy'"
+              ></button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Admin Token</label>
+            <p class="text-sm text-muted mb-1">Keep this secret — it lets you manage and delete the event.</p>
+            <div class="token-row">
+              <div class="token-box" style="flex:1" x-text="result && result.admin_token"></div>
+              <button
+                class="btn btn-secondary btn-sm copy-btn"
+                @click="copy(result.admin_token, 'copiedAdmin')"
+                x-text="copiedAdmin ? 'Copied!' : 'Copy'"
+              ></button>
+            </div>
+          </div>
+
+          <div class="alert alert-warning" style="margin-bottom:1rem">
+            &#9888; Save your admin token now — it will not be shown again. You need it to manage or delete this event.
+          </div>
+
+          <a
+            class="btn btn-primary"
+            :href="result && '/e/' + result.event_id"
+          >View your event &rarr;</a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+  <script defer src="/static/alpine.min.js"></script>
+  <script src="/static/create.js"></script>
+</body>
+</html>
