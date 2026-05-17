@@ -1,8 +1,9 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Optional
 import uuid
 
 from fastapi import APIRouter, Header, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -17,8 +18,11 @@ from ..crypto import (
     verify_token,
 )
 from ..database import get_db
+from ..timeutil import check_expired, validate_email, validate_username
 
 router = APIRouter(tags=["submissions"])
+
+_MAX_AVAILABILITY_ITEMS = 500
 
 
 class AvailabilityItem(BaseModel):
@@ -42,6 +46,12 @@ class UpdateAvailabilityRequest(BaseModel):
 
 
 def _validate_availability(items: list[AvailabilityItem], event_row) -> None:
+    if len(items) > _MAX_AVAILABILITY_ITEMS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"availability may not exceed {_MAX_AVAILABILITY_ITEMS} items",
+        )
+
     window_start = event_row["window_start"]
     window_end = event_row["window_end"]
     day_start = event_row["day_start_hour"]
@@ -64,14 +74,6 @@ def _validate_availability(items: list[AvailabilityItem], event_row) -> None:
             )
 
 
-def _check_expired(expires_at: str) -> None:
-    expiry = datetime.fromisoformat(expires_at)
-    if expiry.tzinfo is None:
-        expiry = expiry.replace(tzinfo=timezone.utc)
-    if datetime.now(tz=timezone.utc) > expiry:
-        raise HTTPException(status_code=410, detail="Event has expired")
-
-
 @router.post("/events/{event_id}/submissions", status_code=201)
 async def create_submission(
     event_id: str,
@@ -79,14 +81,13 @@ async def create_submission(
     x_session_token: Optional[str] = Header(default=None, alias="X-Session-Token"),
 ):
     async with get_db() as db:
-        # Fetch event
         async with db.execute("SELECT * FROM events WHERE id = ?", (event_id,)) as cursor:
             event = await cursor.fetchone()
 
         if event is None:
             raise HTTPException(status_code=404, detail="Event not found")
 
-        _check_expired(event["expires_at"])
+        check_expired(event["expires_at"])
         _validate_availability(body.availability, event)
 
         name = body.name.strip()
@@ -96,7 +97,6 @@ async def create_submission(
         account_id: Optional[str] = None
         now = datetime.now(tz=timezone.utc).isoformat()
 
-        # Determine identity
         if x_session_token:
             token_hash = hash_token(x_session_token)
             async with db.execute(
@@ -117,11 +117,14 @@ async def create_submission(
             account_id = session["account_id"]
 
         elif body.create_account and body.email and body.passphrase:
-            # Inline registration
+            # Inline registration — validate inputs with shared validators (P0-3)
+            reg_username = validate_username(name)
+            reg_email = validate_email(body.email)
+
             if len(body.passphrase) < 8:
                 raise HTTPException(status_code=422, detail="passphrase must be at least 8 characters")
 
-            new_username_hmac = hmac_username(name)
+            new_username_hmac = hmac_username(reg_username)
             async with db.execute(
                 "SELECT id FROM accounts WHERE username_hmac = ?", (new_username_hmac,)
             ) as cursor:
@@ -131,9 +134,9 @@ async def create_submission(
                 raise HTTPException(status_code=409, detail="Username already taken")
 
             new_account_id = str(uuid.uuid4())
-            username_enc = encrypt(name)
-            email_enc = encrypt(body.email)
-            passphrase_hash = hash_passphrase(body.passphrase)
+            username_enc = encrypt(reg_username)
+            email_enc = encrypt(reg_email)
+            passphrase_hash = await run_in_threadpool(hash_passphrase, body.passphrase)
 
             await db.execute(
                 """
@@ -164,7 +167,6 @@ async def create_submission(
 
         name_hmac = hmac_name_in_event(name, event_id)
 
-        # Check for existing submission
         async with db.execute(
             "SELECT id, account_id, edit_token_hash FROM submissions WHERE event_id=? AND name_hmac=?",
             (event_id, name_hmac),
@@ -175,15 +177,8 @@ async def create_submission(
         submission_id: str
 
         if existing_sub is not None:
-            # Verify ownership
             can_edit = False
             if account_id and existing_sub["account_id"] == account_id:
-                can_edit = True
-            elif account_id is None and existing_sub["edit_token_hash"] is None:
-                # Old account-linked submission, can't overwrite without auth
-                can_edit = False
-            # If the existing sub has no account and no edit token hash, it's an orphan — allow overwrite
-            elif existing_sub["account_id"] is None and existing_sub["edit_token_hash"] is None:
                 can_edit = True
 
             if not can_edit:
@@ -191,7 +186,6 @@ async def create_submission(
 
             submission_id = existing_sub["id"]
 
-            # For ephemeral re-submissions, generate a new edit token
             if account_id is None:
                 edit_token = generate_token()
                 new_edit_token_hash = hash_token(edit_token)
@@ -221,7 +215,6 @@ async def create_submission(
                 (submission_id, event_id, account_id, name_hmac, edit_token_hash, now, now),
             )
 
-        # Insert availability rows
         for item in body.availability:
             await db.execute(
                 "INSERT INTO availability (submission_id, avail_date, hour, status) VALUES (?, ?, ?, ?)",
@@ -253,7 +246,7 @@ async def update_submission(
         if event is None:
             raise HTTPException(status_code=404, detail="Event not found")
 
-        _check_expired(event["expires_at"])
+        check_expired(event["expires_at"])
         _validate_availability(body.availability, event)
 
         now = datetime.now(tz=timezone.utc).isoformat()

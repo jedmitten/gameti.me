@@ -27,6 +27,9 @@ _HMAC_KEY: bytes = _derive("hmac-lookup-v1")
 
 _argon2 = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=2)
 
+# Pre-computed hash used to keep login-miss timing indistinguishable from a hit (P2-12).
+DUMMY_HASH: str = _argon2.hash("__dummy__")
+
 
 def generate_token() -> str:
     return secrets.token_urlsafe(32)

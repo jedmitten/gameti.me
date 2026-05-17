@@ -1,13 +1,15 @@
-import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from ..config import settings
 from ..crypto import (
+    DUMMY_HASH,
     decrypt,
     encrypt,
     generate_token,
@@ -18,12 +20,13 @@ from ..crypto import (
     verify_token,
 )
 from ..database import get_db
-from ..config import settings
 from ..email_service import send_recovery_email
+from ..limiter import limiter
+from ..timeutil import validate_email, validate_username
 
 router = APIRouter(tags=["accounts"])
 
-_USERNAME_RE = re.compile(r"^[a-zA-Z0-9_-]{3,50}$")
+_SESSION_LIFETIME_DAYS = 7
 
 
 async def _get_session_account(token: str, db) -> dict:
@@ -80,7 +83,8 @@ class RecoveryConfirmRequest(BaseModel):
 
 
 @router.post("/accounts/check-username")
-async def check_username(body: CheckUsernameRequest):
+@limiter.limit("20/minute")
+async def check_username(request: Request, body: CheckUsernameRequest):
     username_hmac = hmac_username(body.username)
     async with get_db() as db:
         async with db.execute(
@@ -91,14 +95,10 @@ async def check_username(body: CheckUsernameRequest):
 
 
 @router.post("/accounts", status_code=201)
-async def register(body: RegisterRequest):
-    username = body.username.strip()
-
-    if not _USERNAME_RE.match(username):
-        raise HTTPException(
-            status_code=422,
-            detail="Username must be 3–50 characters: letters, digits, underscore, hyphen only",
-        )
+@limiter.limit("5/minute")
+async def register(request: Request, body: RegisterRequest):
+    username = validate_username(body.username)
+    email = validate_email(body.email)
 
     if len(body.passphrase) < 8:
         raise HTTPException(status_code=422, detail="Passphrase must be at least 8 characters")
@@ -117,8 +117,8 @@ async def register(body: RegisterRequest):
         now = datetime.now(tz=timezone.utc)
         account_id = str(uuid.uuid4())
         username_enc = encrypt(username)
-        email_enc = encrypt(body.email.strip())
-        passphrase_hash = hash_passphrase(body.passphrase)
+        email_enc = encrypt(email)
+        passphrase_hash = await run_in_threadpool(hash_passphrase, body.passphrase)
 
         await db.execute(
             """
@@ -139,7 +139,7 @@ async def register(body: RegisterRequest):
 
         session_token = generate_token()
         session_token_hash = hash_token(session_token)
-        session_expires = (now + timedelta(days=30)).isoformat()
+        session_expires = (now + timedelta(days=_SESSION_LIFETIME_DAYS)).isoformat()
 
         await db.execute(
             """
@@ -158,7 +158,8 @@ async def register(body: RegisterRequest):
 
 
 @router.post("/accounts/session")
-async def login(body: LoginRequest):
+@limiter.limit("5/minute")
+async def login(request: Request, body: LoginRequest):
     username = body.username.strip()
     username_hmac = hmac_username(username)
 
@@ -171,15 +172,18 @@ async def login(body: LoginRequest):
             account = await cursor.fetchone()
 
         if account is None:
+            # Keep timing indistinguishable from a real verify (P2-12)
+            await run_in_threadpool(verify_passphrase, body.passphrase, DUMMY_HASH)
             raise _bad_creds
 
-        if not verify_passphrase(body.passphrase, account["passphrase_hash"]):
+        ok = await run_in_threadpool(verify_passphrase, body.passphrase, account["passphrase_hash"])
+        if not ok:
             raise _bad_creds
 
         now = datetime.now(tz=timezone.utc)
         session_token = generate_token()
         session_token_hash = hash_token(session_token)
-        session_expires = (now + timedelta(days=30)).isoformat()
+        session_expires = (now + timedelta(days=_SESSION_LIFETIME_DAYS)).isoformat()
 
         await db.execute(
             """
@@ -205,8 +209,23 @@ async def logout(
 ):
     token_hash = hash_token(x_session_token)
     async with get_db() as db:
-        await db.execute(
+        cursor = await db.execute(
             "DELETE FROM account_sessions WHERE token_hash = ?", (token_hash,)
+        )
+        await db.commit()
+    if cursor.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+
+@router.delete("/accounts/sessions", status_code=204)
+async def logout_everywhere(
+    x_session_token: str = Header(alias="X-Session-Token"),
+):
+    """Revoke all sessions for the authenticated account."""
+    async with get_db() as db:
+        account = await _get_session_account(x_session_token, db)
+        await db.execute(
+            "DELETE FROM account_sessions WHERE account_id = ?", (account["id"],)
         )
         await db.commit()
 
@@ -262,7 +281,8 @@ async def get_my_events(
 
 
 @router.post("/accounts/recovery", status_code=204)
-async def request_recovery(body: RecoveryRequest):
+@limiter.limit("5/minute")
+async def request_recovery(request: Request, body: RecoveryRequest):
     username = body.username.strip()
     username_hmac = hmac_username(username)
     provided_email = body.email.strip().lower()
@@ -297,7 +317,8 @@ async def request_recovery(body: RecoveryRequest):
 
 
 @router.post("/accounts/recovery/confirm")
-async def confirm_recovery(body: RecoveryConfirmRequest):
+@limiter.limit("5/minute")
+async def confirm_recovery(request: Request, body: RecoveryConfirmRequest):
     if len(body.new_passphrase) < 8:
         raise HTTPException(status_code=422, detail="Passphrase must be at least 8 characters")
 
@@ -318,7 +339,7 @@ async def confirm_recovery(body: RecoveryConfirmRequest):
         if datetime.now(tz=timezone.utc) > expires:
             raise HTTPException(status_code=400, detail="Recovery token has expired")
 
-        new_hash = hash_passphrase(body.new_passphrase)
+        new_hash = await run_in_threadpool(hash_passphrase, body.new_passphrase)
         now = datetime.now(tz=timezone.utc).isoformat()
 
         await db.execute(
@@ -337,7 +358,7 @@ async def confirm_recovery(body: RecoveryConfirmRequest):
         session_token = generate_token()
         session_token_hash = hash_token(session_token)
         session_expires = (
-            datetime.now(tz=timezone.utc) + timedelta(days=30)
+            datetime.now(tz=timezone.utc) + timedelta(days=_SESSION_LIFETIME_DAYS)
         ).isoformat()
 
         await db.execute(

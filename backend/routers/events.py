@@ -2,13 +2,15 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 import uuid
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator, model_validator
 
 from ..config import settings
 from ..crypto import decrypt, encrypt, generate_token, hash_token, verify_token
 from ..database import get_db
+from ..limiter import limiter
+from ..timeutil import check_expired
 
 router = APIRouter(tags=["events"])
 
@@ -72,16 +74,9 @@ class CreateEventRequest(BaseModel):
         return self
 
 
-def _check_expired(expires_at: str) -> None:
-    expiry = datetime.fromisoformat(expires_at)
-    if expiry.tzinfo is None:
-        expiry = expiry.replace(tzinfo=timezone.utc)
-    if datetime.now(tz=timezone.utc) > expiry:
-        raise HTTPException(status_code=410, detail="Event has expired")
-
-
 @router.post("/events", status_code=201)
-async def create_event(body: CreateEventRequest):
+@limiter.limit("10/hour")
+async def create_event(request: Request, body: CreateEventRequest):
     event_id = str(uuid.uuid4())
     admin_token = generate_token()
     admin_token_hash = hash_token(admin_token)
@@ -137,7 +132,7 @@ async def get_event(event_id: str):
     if row is None:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    _check_expired(row["expires_at"])
+    check_expired(row["expires_at"])
 
     return {
         "id": row["id"],
@@ -192,7 +187,7 @@ async def get_event_admin(
         if not verify_token(x_admin_token, row["admin_token_hash"]):
             raise HTTPException(status_code=403, detail="Invalid admin token")
 
-        _check_expired(row["expires_at"])
+        check_expired(row["expires_at"])
 
         async with db.execute(
             "SELECT COUNT(*) as cnt FROM submissions WHERE event_id = ?", (event_id,)

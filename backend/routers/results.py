@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from ..database import get_db
+from ..timeutil import check_expired
 
 router = APIRouter(tags=["results"])
 
@@ -9,12 +10,14 @@ router = APIRouter(tags=["results"])
 async def get_results(event_id: str):
     async with get_db() as db:
         async with db.execute(
-            "SELECT id FROM events WHERE id = ?", (event_id,)
+            "SELECT id, expires_at FROM events WHERE id = ?", (event_id,)
         ) as cursor:
             event = await cursor.fetchone()
 
         if event is None:
             raise HTTPException(status_code=404, detail="Event not found")
+
+        check_expired(event["expires_at"])
 
         async with db.execute(
             "SELECT COUNT(*) as cnt FROM submissions WHERE event_id = ?", (event_id,)

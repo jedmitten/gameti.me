@@ -1,3 +1,4 @@
+import html
 import logging
 
 from .config import settings
@@ -6,6 +7,11 @@ logger = logging.getLogger(__name__)
 
 
 async def send_recovery_email(to_email: str, username: str, recovery_url: str) -> None:
+    for val, name in ((to_email, "email"), (username, "username"), (recovery_url, "url")):
+        if "\r" in val or "\n" in val:
+            logger.error("CRLF detected in recovery email field %s — aborting", name)
+            return
+
     if not settings.smtp_host:
         print(f"[DEV] Password recovery for {username}: {recovery_url}")
         return
@@ -20,12 +26,15 @@ async def send_recovery_email(to_email: str, username: str, recovery_url: str) -
         msg["From"] = settings.smtp_from
         msg["To"] = to_email
 
+        safe_username = html.escape(username)
+        safe_url = html.escape(recovery_url)
+
         html_body = f"""<!DOCTYPE html>
 <html>
 <body>
-<p>Hi {username},</p>
+<p>Hi {safe_username},</p>
 <p>You requested a password reset for your OurTime account.</p>
-<p><a href="{recovery_url}">Click here to reset your password</a></p>
+<p><a href="{safe_url}">Click here to reset your password</a></p>
 <p>This link expires in 15 minutes.</p>
 <p>If you did not request this, you can ignore this email.</p>
 </body>

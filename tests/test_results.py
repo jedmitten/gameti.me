@@ -105,13 +105,11 @@ def test_results_multiple_hours_per_day(client, event_id):
     assert len(data["slots"]) == 3
 
 
-def test_results_returns_for_expired_event(client, event_id, avail_items):
-    # Results endpoint does NOT check expiry — data remains readable
+def test_results_returns_410_for_expired_event(client, event_id, avail_items):
     _submit(client, event_id, "Alice", avail_items)
     expire_event(event_id)
     res = client.get(f"/api/events/{event_id}/results")
-    assert res.status_code == 200
-    assert res.json()["respondent_count"] == 1
+    assert res.status_code == 410
 
 
 def test_results_independent_per_event(client, avail_items):
