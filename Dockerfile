@@ -11,7 +11,11 @@ COPY backend/ ./backend/
 COPY frontend/ ./frontend/
 
 # Persistent data lives in a mounted volume at /app/data
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data \
+    && useradd -u 10001 -m -s /sbin/nologin app \
+    && chown -R app:app /app/data
+
+USER app
 
 EXPOSE 8000
 

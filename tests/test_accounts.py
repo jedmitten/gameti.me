@@ -156,9 +156,9 @@ def test_logout_invalidates_session(client, session_token):
     assert res.status_code == 401
 
 
-def test_logout_invalid_token_still_204(client):
+def test_logout_invalid_token_returns_404(client):
     res = client.delete("/api/accounts/session", headers={"X-Session-Token": "garbage"})
-    assert res.status_code == 204
+    assert res.status_code == 404
 
 
 # ── get me ────────────────────────────────────────────────────────────────────

@@ -17,6 +17,10 @@ from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.database import get_db
+from backend.limiter import limiter
+
+# Disable rate limiting in the test suite
+limiter.enabled = False
 
 # ── shared date constants ────────────────────────────────────────────────────
 _TODAY = date.today()
