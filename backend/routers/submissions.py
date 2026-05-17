@@ -116,7 +116,7 @@ async def create_submission(
 
             account_id = session["account_id"]
 
-        elif body.register and body.email and body.passphrase:
+        elif body.create_account and body.email and body.passphrase:
             # Inline registration
             if len(body.passphrase) < 8:
                 raise HTTPException(status_code=422, detail="passphrase must be at least 8 characters")
@@ -156,7 +156,7 @@ async def create_submission(
             if name_account is not None:
                 raise HTTPException(
                     status_code=409,
-                    content={
+                    detail={
                         "registered": True,
                         "message": "This name is registered. Sign in to use it or choose a different name.",
                     },

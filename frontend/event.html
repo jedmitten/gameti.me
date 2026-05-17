@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OurTime</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="/" class="app-title">OurTime</a>
+    <a href="/me" class="btn btn-secondary btn-sm">My Account</a>
+  </header>
+  <main class="container" style="padding-top:2rem; padding-bottom:4rem">
+    <div x-data="eventPage()" x-init="init()">
+
+      <!-- Loading -->
+      <div x-show="loading" style="text-align:center; padding:3rem 0">
+        <span class="spinner-dark"></span>
+        <p class="text-muted mt-2">Loading event...</p>
+      </div>
+
+      <!-- Error -->
+      <div x-show="error && !loading">
+        <div class="alert alert-error" x-text="error"></div>
+        <a href="/" class="btn btn-secondary">Back to Home</a>
+      </div>
+
+      <!-- Main Content -->
+      <div x-show="!loading && !error && event">
+
+        <!-- Event Header -->
+        <div class="card mb-3">
+          <h1 style="font-size:1.75rem; font-weight:700; margin-bottom:.5rem;" x-text="event && event.title"></h1>
+          <p class="text-muted" x-show="event && event.description" x-text="event && event.description"></p>
+          <p class="text-sm text-muted mt-1" x-show="event && event.expires_at">
+            Expires: <span x-text="event && event.expires_at ? new Date(event.expires_at).toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}) : ''"></span>
+          </p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+          <button
+            class="tab-btn"
+            :class="activeTab === 'submit' ? 'active' : ''"
+            @click="switchTab('submit')"
+          >Add Availability</button>
+          <button
+            class="tab-btn"
+            :class="activeTab === 'results' ? 'active' : ''"
+            @click="switchTab('results')"
+          >See Results</button>
+        </div>
+
+        <!-- ===================== SUBMIT TAB ===================== -->
+        <div x-show="activeTab === 'submit'">
+
+          <!-- STEP: name -->
+          <div x-show="submitStep === 'name'">
+            <div class="card">
+              <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem;">Who are you?</h2>
+
+              <!-- Already logged in -->
+              <div x-show="sessionUsername">
+                <div class="alert alert-info mb-2">
+                  Submitting as <strong x-text="sessionUsername"></strong>
+                </div>
+                <div class="flex gap-2 items-center" style="flex-wrap:wrap">
+                  <button class="btn btn-primary" @click="checkName()">Continue as <span x-text="sessionUsername"></span></button>
+                  <button class="btn btn-secondary btn-sm" @click="logout()">Sign out</button>
+                </div>
+              </div>
+
+              <!-- Not logged in -->
+              <div x-show="!sessionUsername">
+                <div class="form-group" style="margin-bottom:1rem">
+                  <label for="submit-name">Your name</label>
+                  <input
+                    id="submit-name"
+                    type="text"
+                    class="input"
+                    placeholder="e.g. Alex, Sam..."
+                    x-model="name"
+                    @keydown.enter="checkName()"
+                    maxlength="100"
+                  >
+                  <p x-show="nameError" class="alert alert-error mt-1" x-text="nameError" style="margin-bottom:0"></p>
+                </div>
+                <button
+                  class="btn btn-primary"
+                  :disabled="!name.trim() || nameChecking"
+                  @click="checkName()"
+                >
+                  <span x-show="nameChecking" class="spinner"></span>
+                  <span x-text="nameChecking ? 'Checking...' : 'Continue'"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP: auth (name is registered) -->
+          <div x-show="submitStep === 'auth'">
+            <div class="card">
+              <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:.5rem;">Sign in as <span x-text="name"></span></h2>
+              <p class="text-muted text-sm mb-3">That name is linked to an account. Sign in to continue, or choose a different name.</p>
+
+              <div x-show="signInError" class="alert alert-error mb-2" x-text="signInError"></div>
+
+              <div class="form-group">
+                <label for="signin-pass">Passphrase</label>
+                <input
+                  id="signin-pass"
+                  type="password"
+                  class="input"
+                  placeholder="Your passphrase"
+                  x-model="signInPassphrase"
+                  @keydown.enter="signIn()"
+                >
+              </div>
+              <div class="flex gap-2 items-center" style="flex-wrap:wrap">
+                <button class="btn btn-primary" :disabled="!signInPassphrase.trim()" @click="signIn()">Sign In</button>
+                <button class="btn btn-secondary" @click="submitStep='name'; nameRegistered=false; name=''; signInPassphrase=''; signInError=''">Use different name</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- STEP: calendar -->
+          <div x-show="submitStep === 'calendar'">
+
+            <!-- Instruction -->
+            <div class="alert alert-info mb-2">
+              Click days to select them, then mark each hour as Yes / Maybe / No. Drag to select multiple days at once.
+            </div>
+
+            <!-- Calendar -->
+            <div class="card">
+              <h2 style="font-size:1rem; font-weight:600; margin-bottom:1rem;">Select Days</h2>
+              <div class="calendar-wrap">
+                <div class="months-row">
+                  <template x-for="m in visibleMonths" :key="m.year + '-' + m.month">
+                    <div class="month-block">
+                      <div class="month-header">
+                        <span x-text="m.label"></span>
+                      </div>
+                      <div class="cal-grid"
+                        @mouseup.window="isDragging=false"
+                      >
+                        <div class="cal-day-header">Su</div>
+                        <div class="cal-day-header">Mo</div>
+                        <div class="cal-day-header">Tu</div>
+                        <div class="cal-day-header">We</div>
+                        <div class="cal-day-header">Th</div>
+                        <div class="cal-day-header">Fr</div>
+                        <div class="cal-day-header">Sa</div>
+                        <template x-for="(cell, idx) in m.cells" :key="idx">
+                          <div
+                            :class="getCalCellClass(cell)"
+                            @mousedown="cell.inWindow && startDrag(cell)"
+                            @mousemove="cell.inWindow && continueDrag(cell)"
+                            @mouseup="isDragging=false"
+                            @click="cell.inWindow && toggleDay(cell.date)"
+                            x-text="cell.blank ? '' : cell.day"
+                          ></div>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <!-- Hour grids for selected days -->
+            <template x-for="date in sortedSelectedDays" :key="date">
+              <div class="day-hours-section">
+                <div class="day-hours-header">
+                  <span x-text="formatDateLabel(date)"></span>
+                  <button class="btn btn-secondary btn-sm" @click="toggleDay(date)">Remove day</button>
+                </div>
+                <div class="mark-all-row">
+                  <span class="text-sm text-muted">Mark all:</span>
+                  <button class="btn btn-sm" style="background:var(--color-yes-light);color:#166534;border:1px solid var(--color-yes)" @click="markAllDay(date,'yes')">Yes</button>
+                  <button class="btn btn-sm" style="background:var(--color-maybe-light);color:#92400e;border:1px solid var(--color-maybe)" @click="markAllDay(date,'maybe')">Maybe</button>
+                  <button class="btn btn-sm" style="background:var(--color-no-light);color:#991b1b;border:1px solid var(--color-no)" @click="markAllDay(date,'no')">No</button>
+                  <button class="btn btn-sm btn-secondary" @click="markAllDay(date,'unset')">Clear</button>
+                </div>
+                <div class="hour-grid">
+                  <template x-for="hour in availableHours" :key="hour">
+                    <div
+                      :class="getHourCellClass(date, hour)"
+                      @click="toggleHour(date, hour)"
+                      x-text="formatHour(hour)"
+                    ></div>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <!-- Summary -->
+            <div class="card mt-2" x-show="sortedSelectedDays.length > 0">
+              <p class="text-sm text-muted">
+                <span x-text="submissionSummary.days"></span> day(s) selected &nbsp;·&nbsp;
+                <span style="color:#166534; font-weight:600" x-text="submissionSummary.yes + ' yes'"></span>,
+                <span style="color:#92400e; font-weight:600" x-text="submissionSummary.maybe + ' maybe'"></span>,
+                <span style="color:#991b1b; font-weight:600" x-text="submissionSummary.no + ' no'"></span> slots
+              </p>
+            </div>
+
+            <!-- Optional: Register -->
+            <div class="card mt-2" x-show="!sessionUsername">
+              <label style="display:flex; align-items:center; gap:.5rem; cursor:pointer; font-weight:500; font-size:.95rem; margin-bottom:0">
+                <input type="checkbox" x-model="wantRegister" style="width:auto">
+                Save this name for future events
+              </label>
+              <div x-show="wantRegister" style="margin-top:1rem">
+                <div class="form-group">
+                  <label for="reg-email">Email <span class="text-muted text-sm">(optional, for recovery)</span></label>
+                  <input id="reg-email" type="email" class="input" placeholder="you@example.com" x-model="regEmail">
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                  <label for="reg-pass">Passphrase <span style="color:var(--color-no)">*</span></label>
+                  <input id="reg-pass" type="password" class="input" placeholder="Choose a passphrase" x-model="regPassphrase">
+                </div>
+              </div>
+            </div>
+
+            <!-- Submit error -->
+            <div x-show="submitError" class="alert alert-error mt-2" x-text="submitError"></div>
+
+            <!-- Submit button -->
+            <div class="mt-2">
+              <button
+                class="btn btn-primary btn-full"
+                :disabled="!canSubmit || submitting"
+                @click="submit()"
+              >
+                <span x-show="submitting" class="spinner"></span>
+                <span x-text="submitting ? 'Submitting...' : 'Submit Availability'"></span>
+              </button>
+            </div>
+          </div>
+
+          <!-- STEP: done -->
+          <div x-show="submitStep === 'done'">
+            <div class="card">
+              <div class="alert alert-success mb-3">
+                Your availability has been submitted!
+              </div>
+
+              <div x-show="editToken && !sessionUsername">
+                <div class="form-group">
+                  <label>Edit Token</label>
+                  <p class="text-sm text-muted mb-1">Save this token to update your response later.</p>
+                  <div class="token-row">
+                    <div class="token-box" style="flex:1" x-text="editToken"></div>
+                    <button
+                      class="btn btn-secondary btn-sm copy-btn"
+                      @click="copyEditToken()"
+                      x-text="copiedEdit ? 'Copied!' : 'Copy'"
+                    ></button>
+                  </div>
+                </div>
+                <div class="alert alert-warning">
+                  Save your edit token — you will need it to update your response.
+                </div>
+              </div>
+
+              <div class="flex gap-2 items-center mt-2" style="flex-wrap:wrap">
+                <button class="btn btn-secondary" @click="switchTab('results')">See Results</button>
+                <button class="btn btn-secondary" @click="resetSubmit()">Submit another response</button>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- end submit tab -->
+
+        <!-- ===================== RESULTS TAB ===================== -->
+        <div x-show="activeTab === 'results'">
+
+          <!-- Loading results -->
+          <div x-show="resultsLoading" style="text-align:center; padding:2rem 0">
+            <span class="spinner-dark"></span>
+            <p class="text-muted mt-1">Loading results...</p>
+          </div>
+
+          <!-- Results content -->
+          <div x-show="!resultsLoading && results">
+
+            <!-- Summary -->
+            <div class="results-summary">
+              <div class="count-badge">
+                <strong x-text="results && results.respondent_count"></strong> respondent(s)
+              </div>
+            </div>
+
+            <!-- Heat map calendar -->
+            <div class="card mb-2">
+              <h2 style="font-size:1rem; font-weight:600; margin-bottom:1rem;">Availability Overview</h2>
+              <p class="text-sm text-muted mb-2">Click a day to see the hour breakdown.</p>
+              <div class="calendar-wrap">
+                <div class="months-row">
+                  <template x-for="m in visibleMonths" :key="m.year + '-' + m.month">
+                    <div class="month-block">
+                      <div class="month-header">
+                        <span x-text="m.label"></span>
+                      </div>
+                      <div class="cal-grid">
+                        <div class="cal-day-header">Su</div>
+                        <div class="cal-day-header">Mo</div>
+                        <div class="cal-day-header">Tu</div>
+                        <div class="cal-day-header">We</div>
+                        <div class="cal-day-header">Th</div>
+                        <div class="cal-day-header">Fr</div>
+                        <div class="cal-day-header">Sa</div>
+                        <template x-for="(cell, idx) in m.cells" :key="idx">
+                          <div
+                            :class="getResultCellClass(cell)"
+                            @click="cell.inWindow && (selectedResultDay = selectedResultDay === cell.date ? null : cell.date)"
+                            x-text="cell.blank ? '' : cell.day"
+                          ></div>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <!-- Day detail panel -->
+            <div x-show="selectedResultDay" class="card mb-2">
+              <h2 style="font-size:1rem; font-weight:600; margin-bottom:1rem;">
+                <span x-text="selectedResultDay ? formatDateLabel(selectedResultDay) : ''"></span>
+              </h2>
+              <div class="hour-grid">
+                <template x-for="slot in getDaySlots(selectedResultDay)" :key="slot.hour">
+                  <div style="min-width:120px; padding:.5rem .75rem; border:1px solid var(--color-border); border-radius:6px; background:white">
+                    <div style="font-weight:600; font-size:.85rem; margin-bottom:.3rem" x-text="formatHour(slot.hour)"></div>
+                    <div class="flex gap-1" style="flex-wrap:wrap">
+                      <span class="yes-badge" x-text="slot.yes + ' yes'"></span>
+                      <span class="maybe-badge" x-text="slot.maybe + ' maybe'"></span>
+                      <span class="no-badge" x-text="slot.no + ' no'"></span>
+                    </div>
+                  </div>
+                </template>
+                <div x-show="getDaySlots(selectedResultDay).length === 0" class="text-muted text-sm">No responses for this day yet.</div>
+              </div>
+            </div>
+
+            <!-- Top 5 slots -->
+            <div class="card" x-show="results && results.slots && results.slots.length > 0">
+              <h2 style="font-size:1rem; font-weight:600; margin-bottom:1rem;">Top Time Slots</h2>
+              <ul class="slot-list">
+                <template x-for="(slot, idx) in topSlots" :key="slot.date + '-' + slot.hour">
+                  <li class="slot-item">
+                    <span class="slot-rank" x-text="'#' + (idx+1)"></span>
+                    <span style="flex:1; font-weight:500; font-size:.9rem">
+                      <span x-text="formatDateLabel(slot.date)"></span>
+                      &nbsp;
+                      <span x-text="formatHour(slot.hour)"></span>
+                    </span>
+                    <span class="yes-badge" x-text="slot.yes + ' yes'"></span>
+                    <span class="maybe-badge" x-text="slot.maybe + ' maybe'"></span>
+                    <span class="no-badge" x-text="slot.no + ' no'"></span>
+                    <span class="text-muted text-sm" x-text="'score: ' + slot.score"></span>
+                  </li>
+                </template>
+              </ul>
+            </div>
+
+            <div x-show="results && (!results.slots || results.slots.length === 0)" class="card">
+              <p class="text-muted text-sm">No responses yet. Be the first to submit!</p>
+            </div>
+
+          </div>
+        </div><!-- end results tab -->
+
+      </div><!-- end main content -->
+    </div>
+  </main>
+  <script defer src="/static/alpine.min.js"></script>
+  <script src="/static/event.js"></script>
+</body>
+</html>
