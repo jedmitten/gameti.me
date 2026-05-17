@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OurTime — Event Admin</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="/" class="app-title">OurTime</a>
+  </header>
+  <main class="container" style="padding-top:2rem; padding-bottom:4rem">
+    <div x-data="adminPage()" x-init="init()">
+
+      <!-- Deleted state -->
+      <div x-show="deleted">
+        <div class="alert alert-success">Event deleted successfully.</div>
+        <a href="/" class="btn btn-primary">Back to Home</a>
+      </div>
+
+      <!-- Main content (not deleted) -->
+      <div x-show="!deleted">
+
+        <!-- No token: token input form -->
+        <div x-show="!adminToken && !loading">
+          <div class="card">
+            <h1 style="font-size:1.5rem; font-weight:700; margin-bottom:.5rem;">Event Admin</h1>
+            <p class="text-muted text-sm mb-3">Paste your admin token to manage this event.</p>
+            <div x-show="error" class="alert alert-error mb-2" x-text="error"></div>
+            <div class="form-group">
+              <label for="token-input">Admin Token</label>
+              <input
+                id="token-input"
+                type="text"
+                class="input"
+                placeholder="Paste your admin token here"
+                x-model="tokenInput"
+                @keydown.enter="adminToken = tokenInput; load()"
+              >
+            </div>
+            <button
+              class="btn btn-primary"
+              :disabled="!tokenInput.trim()"
+              @click="adminToken = tokenInput; load()"
+            >Load Event</button>
+          </div>
+        </div>
+
+        <!-- Loading spinner -->
+        <div x-show="loading" style="text-align:center; padding:3rem 0">
+          <span class="spinner-dark"></span>
+          <p class="text-muted mt-2">Loading...</p>
+        </div>
+
+        <!-- Error (after token submitted) -->
+        <div x-show="error && !loading && adminToken && !event">
+          <div class="alert alert-error" x-text="error"></div>
+          <button class="btn btn-secondary" @click="adminToken=''; error=''; event=null; adminData=null">Try again</button>
+        </div>
+
+        <!-- Loaded event -->
+        <div x-show="event && adminData && !loading">
+          <h2 style="font-size:1.5rem; font-weight:700; margin-bottom:1.5rem;" x-text="event && event.title"></h2>
+
+          <!-- Stats card -->
+          <div class="card mb-2">
+            <h3 style="font-size:1rem; font-weight:600; margin-bottom:1rem; color:var(--color-text-muted)">Event Details</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:1rem;">
+              <div class="count-badge">
+                <div class="text-sm text-muted">Respondents</div>
+                <div style="font-size:1.5rem; font-weight:700; margin-top:.25rem" x-text="adminData && adminData.respondent_count"></div>
+              </div>
+              <div class="count-badge">
+                <div class="text-sm text-muted">Window</div>
+                <div style="font-weight:600; margin-top:.25rem">
+                  <span x-text="event && event.window_start"></span>
+                  &nbsp;to&nbsp;
+                  <span x-text="event && event.window_end"></span>
+                </div>
+              </div>
+              <div class="count-badge">
+                <div class="text-sm text-muted">Expires</div>
+                <div style="font-weight:600; margin-top:.25rem" x-text="event && event.expires_at ? new Date(event.expires_at).toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'}) : 'Never'"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Links card -->
+          <div class="card mb-2">
+            <h3 style="font-size:1rem; font-weight:600; margin-bottom:1rem; color:var(--color-text-muted)">Links</h3>
+            <div class="flex gap-2" style="flex-wrap:wrap">
+              <a
+                :href="event && '/e/' + event.id"
+                class="btn btn-primary"
+                target="_blank"
+              >View Results &amp; Submit &rarr;</a>
+            </div>
+          </div>
+
+          <!-- Danger zone -->
+          <div class="card" style="border:1.5px solid var(--color-no-light)">
+            <h3 style="font-size:1rem; font-weight:600; margin-bottom:.5rem; color:#991b1b">Danger Zone</h3>
+            <p class="text-sm text-muted mb-3">Permanently delete this event and all responses. This cannot be undone.</p>
+
+            <div x-show="!showDeleteConfirm">
+              <button class="btn btn-danger" @click="showDeleteConfirm = true">Delete Event</button>
+            </div>
+
+            <div x-show="showDeleteConfirm">
+              <div class="alert alert-error mb-2">
+                This will permanently delete the event and all responses. Are you sure?
+              </div>
+              <div class="flex gap-2 items-center">
+                <button
+                  class="btn btn-danger"
+                  :disabled="deleting"
+                  @click="deleteEvent()"
+                >
+                  <span x-show="deleting" class="spinner"></span>
+                  <span x-text="deleting ? 'Deleting...' : 'Yes, delete permanently'"></span>
+                </button>
+                <button class="btn btn-secondary" @click="showDeleteConfirm = false" :disabled="deleting">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- end !deleted -->
+    </div>
+  </main>
+  <script defer src="/static/alpine.min.js"></script>
+  <script src="/static/admin.js"></script>
+</body>
+</html>

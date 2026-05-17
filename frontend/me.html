@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OurTime — My Account</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a href="/" class="app-title">OurTime</a>
+  </header>
+  <main class="container" style="padding-top:2rem; padding-bottom:4rem">
+    <div x-data="mePage()" x-init="init()">
+
+      <!-- Loading -->
+      <div x-show="loading" style="text-align:center; padding:3rem 0">
+        <span class="spinner-dark"></span>
+        <p class="text-muted mt-2">Loading...</p>
+      </div>
+
+      <!-- Authenticated: user dashboard -->
+      <div x-show="!loading && user">
+
+        <div class="card mb-3">
+          <div class="flex justify-between items-center" style="flex-wrap:wrap; gap:1rem">
+            <div>
+              <h1 style="font-size:1.5rem; font-weight:700;">Hello, <span x-text="user && user.username"></span>!</h1>
+              <p class="text-muted text-sm mt-1" x-show="user && user.has_email">Account has email for recovery.</p>
+              <p class="text-muted text-sm mt-1" x-show="user && !user.has_email">No email on file. Add one for account recovery.</p>
+            </div>
+            <button class="btn btn-secondary" @click="logout()">Sign Out</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem;">My Events</h2>
+
+          <div x-show="events.length === 0">
+            <p class="text-muted text-sm">No events yet — <a href="/" style="color:var(--color-primary)">create one!</a></p>
+          </div>
+
+          <ul class="slot-list" x-show="events.length > 0">
+            <template x-for="ev in events" :key="ev.event_id">
+              <li class="slot-item">
+                <div style="flex:1">
+                  <a
+                    :href="'/e/' + ev.event_id"
+                    style="font-weight:600; color:var(--color-primary); text-decoration:none; font-size:.95rem"
+                    x-text="ev.title"
+                  ></a>
+                  <div class="text-sm text-muted mt-1">
+                    Submitted <span x-text="formatDate(ev.submitted_at)"></span>
+                  </div>
+                </div>
+                <a :href="'/e/' + ev.event_id" class="btn btn-secondary btn-sm">View &rarr;</a>
+              </li>
+            </template>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Not authenticated: auth forms -->
+      <div x-show="!loading && !user">
+
+        <!-- Recovery confirm (from URL hash) -->
+        <div x-show="authView === 'recover-confirm'">
+          <div class="card">
+            <h2 style="font-size:1.25rem; font-weight:700; margin-bottom:.5rem;">Reset Passphrase</h2>
+            <p class="text-muted text-sm mb-3">Enter a new passphrase for your account.</p>
+
+            <div x-show="recoverError" class="alert alert-error mb-2" x-text="recoverError"></div>
+
+            <div class="form-group">
+              <label for="recover-pass">New Passphrase</label>
+              <input
+                id="recover-pass"
+                type="password"
+                class="input"
+                placeholder="Choose a new passphrase"
+                x-model="recoverPassphrase"
+                @keydown.enter="confirmRecovery()"
+              >
+            </div>
+            <button
+              class="btn btn-primary"
+              :disabled="!recoverPassphrase.trim() || recoverLoading"
+              @click="confirmRecovery()"
+            >
+              <span x-show="recoverLoading" class="spinner"></span>
+              <span x-text="recoverLoading ? 'Resetting...' : 'Reset Passphrase'"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Login / Register tabs -->
+        <div x-show="authView === 'login' || authView === 'register'">
+          <div class="card">
+            <div class="tabs" style="margin-bottom:1.5rem">
+              <button
+                class="tab-btn"
+                :class="authView === 'login' ? 'active' : ''"
+                @click="authView='login'"
+              >Login</button>
+              <button
+                class="tab-btn"
+                :class="authView === 'register' ? 'active' : ''"
+                @click="authView='register'"
+              >Register</button>
+            </div>
+
+            <!-- Login form -->
+            <div x-show="authView === 'login'">
+              <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem;">Sign in to your account</h2>
+
+              <div x-show="loginError" class="alert alert-error mb-2" x-text="loginError"></div>
+
+              <div class="form-group">
+                <label for="login-user">Username</label>
+                <input
+                  id="login-user"
+                  type="text"
+                  class="input"
+                  placeholder="Your username"
+                  x-model="loginUsername"
+                  @keydown.enter="login()"
+                >
+              </div>
+              <div class="form-group">
+                <label for="login-pass">Passphrase</label>
+                <input
+                  id="login-pass"
+                  type="password"
+                  class="input"
+                  placeholder="Your passphrase"
+                  x-model="loginPassphrase"
+                  @keydown.enter="login()"
+                >
+              </div>
+              <button
+                class="btn btn-primary btn-full mb-2"
+                :disabled="!loginUsername.trim() || !loginPassphrase.trim() || loginLoading"
+                @click="login()"
+              >
+                <span x-show="loginLoading" class="spinner"></span>
+                <span x-text="loginLoading ? 'Signing in...' : 'Sign In'"></span>
+              </button>
+              <p class="text-sm text-muted">
+                Forgot your passphrase?
+                <button
+                  class="btn btn-secondary btn-sm"
+                  style="margin-left:.5rem"
+                  @click="authView='recovery'; recUsername=loginUsername"
+                >Recover Account</button>
+              </p>
+            </div>
+
+            <!-- Register form -->
+            <div x-show="authView === 'register'">
+              <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:1rem;">Create an account</h2>
+              <p class="text-muted text-sm mb-3">Save your name so your responses are linked across events.</p>
+
+              <div x-show="regError" class="alert alert-error mb-2" x-text="regError"></div>
+
+              <div class="form-group">
+                <label for="reg-user">Username</label>
+                <input
+                  id="reg-user"
+                  type="text"
+                  class="input"
+                  placeholder="Choose a username"
+                  x-model="regUsername"
+                >
+              </div>
+              <div class="form-group">
+                <label for="reg-email">Email <span class="text-muted text-sm">(optional, for recovery)</span></label>
+                <input
+                  id="reg-email"
+                  type="email"
+                  class="input"
+                  placeholder="you@example.com"
+                  x-model="regEmail"
+                >
+              </div>
+              <div class="form-group">
+                <label for="reg-pass">Passphrase <span style="color:var(--color-no)">*</span></label>
+                <input
+                  id="reg-pass"
+                  type="password"
+                  class="input"
+                  placeholder="Choose a passphrase"
+                  x-model="regPassphrase"
+                  @keydown.enter="register()"
+                >
+              </div>
+              <button
+                class="btn btn-primary btn-full"
+                :disabled="!regUsername.trim() || !regPassphrase.trim() || regLoading"
+                @click="register()"
+              >
+                <span x-show="regLoading" class="spinner"></span>
+                <span x-text="regLoading ? 'Creating account...' : 'Create Account'"></span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Recovery form -->
+        <div x-show="authView === 'recovery'">
+          <div class="card">
+            <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:.5rem;">Recover Account</h2>
+            <p class="text-muted text-sm mb-3">Enter your username and email address. If an account with that email exists, you'll receive a recovery link.</p>
+
+            <div x-show="recError" class="alert alert-error mb-2" x-text="recError"></div>
+            <div x-show="recSuccess" class="alert alert-success mb-2">Recovery email sent! Check your inbox.</div>
+
+            <div class="form-group">
+              <label for="rec-user">Username</label>
+              <input
+                id="rec-user"
+                type="text"
+                class="input"
+                placeholder="Your username"
+                x-model="recUsername"
+              >
+            </div>
+            <div class="form-group">
+              <label for="rec-email">Email</label>
+              <input
+                id="rec-email"
+                type="email"
+                class="input"
+                placeholder="Email on your account"
+                x-model="recEmail"
+                @keydown.enter="requestRecovery()"
+              >
+            </div>
+            <div class="flex gap-2 items-center" style="flex-wrap:wrap">
+              <button
+                class="btn btn-primary"
+                :disabled="!recUsername.trim() || !recEmail.trim() || recLoading"
+                @click="requestRecovery()"
+              >
+                <span x-show="recLoading" class="spinner"></span>
+                <span x-text="recLoading ? 'Sending...' : 'Send Recovery Email'"></span>
+              </button>
+              <button class="btn btn-secondary" @click="authView='login'">Back to Login</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+  <script defer src="/static/alpine.min.js"></script>
+  <script src="/static/me.js"></script>
+</body>
+</html>
