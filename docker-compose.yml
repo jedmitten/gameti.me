@@ -1,5 +1,5 @@
 services:
-  ourtime:
+  gametime:
     build: .
     restart: unless-stopped
     ports:
@@ -10,7 +10,7 @@ services:
       # Generate SECRET_KEY with: python3 -c "import secrets; print(secrets.token_hex(32))"
       SECRET_KEY: ${SECRET_KEY}
       SITE_ADMIN_SECRET: ${SITE_ADMIN_SECRET}
-      DB_PATH: data/ourtime.db
+      DB_PATH: data/gametime.db
       BASE_URL: ${BASE_URL:-http://localhost:8000}
       EVENT_EXPIRY_DAYS: ${EVENT_EXPIRY_DAYS:-90}
       # SMTP — leave empty to disable (recovery tokens log to container stdout)
