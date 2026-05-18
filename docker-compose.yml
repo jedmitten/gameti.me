@@ -1,6 +1,7 @@
 services:
   gametime:
     build: .
+    user: "1032:65539"
     restart: unless-stopped
     ports:
       - "8000:8000"          # change left side to remap host port if needed
