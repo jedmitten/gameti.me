@@ -9,7 +9,10 @@
 <body>
   <header class="app-header">
     <a href="/" class="app-title">Gameti.me</a>
-    <a href="/me" class="btn btn-secondary btn-sm">My Account</a>
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <span class="version-badge">v2.0</span>
+      <a href="/me" class="btn btn-secondary btn-sm">My Account</a>
+    </div>
   </header>
   <main class="container" style="padding-top:2rem; padding-bottom:4rem">
     <div x-data="eventPage()" x-init="init()">

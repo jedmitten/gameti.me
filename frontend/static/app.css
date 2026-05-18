@@ -62,6 +62,14 @@ body {
   letter-spacing: -.01em;
 }
 
+.version-badge {
+  font-size: .65rem;
+  font-weight: 600;
+  color: var(--text-light);
+  letter-spacing: .04em;
+  font-family: var(--mono);
+}
+
 /* Container */
 .container {
   max-width: 960px;
