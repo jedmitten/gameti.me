@@ -9,7 +9,10 @@
 <body>
   <header class="app-header">
     <a href="/" class="app-title">Gameti.me</a>
-    <a href="/" class="btn btn-secondary btn-sm">Create event</a>
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <span class="version-badge">dev</span>
+      <a href="/" class="btn btn-secondary btn-sm">Create event</a>
+    </div>
   </header>
 
   <main class="container" style="padding-top:1.5rem">
@@ -190,5 +193,6 @@
 
   <script defer src="/static/alpine.min.js" integrity="sha384-pb6hrQvo4s23cEUFtj0CZkzGE3jyK3pj26RIupXXxhSrrcUA/Cn0lZgcCrGH0t6L" crossorigin="anonymous"></script>
   <script src="/static/me.js"></script>
+  <script src="/static/version.js"></script>
 </body>
 </html>

@@ -13,6 +13,8 @@ PYEOF
 fi
 pip install -r requirements.txt -q
 
+git rev-parse --short HEAD > frontend/static/version.txt 2>/dev/null || echo "dev" > frontend/static/version.txt
+
 HOST="${HOST:-127.0.0.1}"
 if [ "${DEV:-0}" = "1" ]; then
     uvicorn backend.main:app --reload --host "$HOST" --port 8000

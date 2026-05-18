@@ -10,6 +10,9 @@ RUN pip install --no-cache-dir -r requirements.txt \
 COPY backend/ ./backend/
 COPY frontend/ ./frontend/
 
+ARG GIT_COMMIT=dev
+RUN echo "$GIT_COMMIT" > /app/frontend/static/version.txt
+
 # Persistent data lives in a mounted volume at /app/data
 RUN mkdir -p /app/data \
     && useradd -u 10001 -m -s /sbin/nologin app \
