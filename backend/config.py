@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     secret_key: str
     site_admin_secret: str
-    db_path: str = "data/ourtime.db"
+    db_path: str = "data/gametime.db"
     base_url: str = "http://localhost:8000"
     event_expiry_days: int = 90
     smtp_host: str = ""

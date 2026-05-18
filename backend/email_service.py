@@ -22,7 +22,7 @@ async def send_recovery_email(to_email: str, username: str, recovery_url: str) -
         from email.mime.text import MIMEText
 
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = "OurTime password recovery"
+        msg["Subject"] = "Gameti.me password recovery"
         msg["From"] = settings.smtp_from
         msg["To"] = to_email
 
@@ -33,7 +33,7 @@ async def send_recovery_email(to_email: str, username: str, recovery_url: str) -
 <html>
 <body>
 <p>Hi {safe_username},</p>
-<p>You requested a password reset for your OurTime account.</p>
+<p>You requested a password reset for your Gameti.me account.</p>
 <p><a href="{safe_url}">Click here to reset your password</a></p>
 <p>This link expires in 15 minutes.</p>
 <p>If you did not request this, you can ignore this email.</p>
@@ -42,7 +42,7 @@ async def send_recovery_email(to_email: str, username: str, recovery_url: str) -
 
         text_body = (
             f"Hi {username},\n\n"
-            f"You requested a password reset for your OurTime account.\n\n"
+            f"You requested a password reset for your Gameti.me account.\n\n"
             f"Reset your password here: {recovery_url}\n\n"
             f"This link expires in 15 minutes.\n\n"
             f"If you did not request this, you can ignore this email."
