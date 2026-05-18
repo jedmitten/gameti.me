@@ -1,4 +1,4 @@
-# OurTime
+# GameTime
 
 A privacy-first collaborative scheduling tool for small groups. No account required to participate — anyone with a link can mark their availability with **Yes / Maybe / No** per time slot. Results show as an aggregate overlap grid; no individual responses are ever exposed to the event creator or other participants.
 
@@ -16,24 +16,35 @@ A privacy-first collaborative scheduling tool for small groups. No account requi
 
 ## Table of Contents
 
-- [Quick Start](#quick-start)
-- [Usage](#usage)
-  - [Creating an Event](#creating-an-event)
-  - [Submitting Availability](#submitting-availability)
-  - [Viewing Results](#viewing-results)
-  - [Persistent Accounts](#persistent-accounts)
-- [Administration](#administration)
-  - [Event Admin](#event-admin)
-  - [Site Admin](#site-admin)
-  - [Deployment](#deployment)
-  - [Configuration Reference](#configuration-reference)
-- [Maintenance](#maintenance)
-  - [Updating](#updating)
-  - [Backups](#backups)
-  - [Running Tests](#running-tests)
-  - [Database](#database)
-- [Contributing](#contributing)
-- [License](#license)
+- [GameTime](#gametime)
+  - [Features](#features)
+  - [Table of Contents](#table-of-contents)
+  - [Quick Start](#quick-start)
+    - [Local development](#local-development)
+    - [Docker (recommended for production)](#docker-recommended-for-production)
+  - [Usage](#usage)
+    - [Creating an Event](#creating-an-event)
+    - [Submitting Availability](#submitting-availability)
+    - [Viewing Results](#viewing-results)
+    - [Persistent Accounts](#persistent-accounts)
+  - [Administration](#administration)
+    - [Event Admin](#event-admin)
+    - [Site Admin](#site-admin)
+    - [Deployment](#deployment)
+      - [Synology Container Manager](#synology-container-manager)
+      - [Other platforms](#other-platforms)
+    - [Configuration Reference](#configuration-reference)
+  - [Maintenance](#maintenance)
+    - [Updating](#updating)
+    - [Backups](#backups)
+    - [Running Tests](#running-tests)
+    - [Database](#database)
+  - [Contributing](#contributing)
+    - [Development setup](#development-setup)
+    - [Guidelines](#guidelines)
+    - [Branch and PR conventions](#branch-and-pr-conventions)
+    - [Reporting security issues](#reporting-security-issues)
+  - [License](#license)
 
 ---
 
@@ -42,8 +53,8 @@ A privacy-first collaborative scheduling tool for small groups. No account requi
 ### Local development
 
 ```bash
-git clone https://github.com/jedmitten/ourtime.us.git
-cd ourtime.us
+git clone https://github.com/jedmitten/gameti.me.git
+cd gameti.me
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env          # edit .env — see Configuration Reference
@@ -55,8 +66,8 @@ Open `http://localhost:8000`.
 ### Docker (recommended for production)
 
 ```bash
-git clone https://github.com/jedmitten/ourtime.us.git
-cd ourtime.us
+git clone https://github.com/jedmitten/gameti.me.git
+cd gameti.me
 cp .env.example .env          # edit .env before first run
 docker compose up -d
 ```
@@ -179,7 +190,7 @@ All configuration is via environment variables (or a `.env` file in the project 
 | `SECRET_KEY` | Yes | — | 64-character hex string. Used as HKDF master key for AES encryption and HMAC lookups. Generate with `python3 -c "import secrets; print(secrets.token_hex(32))"` |
 | `SITE_ADMIN_SECRET` | Yes | — | Site admin password. Used only for username transfers. |
 | `BASE_URL` | Yes | `http://localhost:8000` | Public-facing URL with no trailing slash. Used in recovery email links. |
-| `DB_PATH` | No | `data/ourtime.db` | Path to SQLite database file. The directory is created automatically. |
+| `DB_PATH` | No | `data/gametime.db` | Path to SQLite database file. The directory is created automatically. |
 | `EVENT_EXPIRY_DAYS` | No | `90` | Days after creation before an event auto-deletes. |
 | `SMTP_HOST` | No | _(empty)_ | SMTP server hostname. Leave empty to disable email; recovery tokens print to stdout instead. |
 | `SMTP_PORT` | No | `587` | SMTP port. |
@@ -205,15 +216,15 @@ The database schema uses `CREATE TABLE IF NOT EXISTS` — schema additions are s
 
 ### Backups
 
-The entire application state lives in a single SQLite file. Back it up by copying `data/ourtime.db` while the app is idle, or use SQLite's online backup:
+The entire application state lives in a single SQLite file. Back it up by copying `data/gametime.db` while the app is idle, or use SQLite's online backup:
 
 ```bash
-sqlite3 data/ourtime.db ".backup data/ourtime.backup.db"
+sqlite3 data/gametime.db ".backup data/gametime.backup.db"
 ```
 
 For scheduled backups on Synology, use Task Scheduler to run the above command and copy the output to a backup share. The database is typically small (a few MB for typical usage).
 
-To restore, stop the container, replace `data/ourtime.db` with your backup, and restart.
+To restore, stop the container, replace `data/gametime.db` with your backup, and restart.
 
 ### Running Tests
 
@@ -234,7 +245,7 @@ python -m pytest tests/ -q && docker compose up -d --build
 The app uses SQLite in WAL mode. Direct inspection:
 
 ```bash
-sqlite3 data/ourtime.db
+sqlite3 data/gametime.db
 ```
 
 Useful queries:
@@ -261,8 +272,8 @@ Contributions are welcome. Please open an issue before starting significant work
 ### Development setup
 
 ```bash
-git clone https://github.com/jedmitten/ourtime.us.git
-cd ourtime.us
+git clone https://github.com/jedmitten/gameti.me.git
+cd gameti.me
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env  # fill in SECRET_KEY and SITE_ADMIN_SECRET
