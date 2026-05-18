@@ -9,212 +9,346 @@
 <body>
   <header class="app-header">
     <a href="/" class="app-title">Gameti.me</a>
-    <a href="/me" class="btn btn-secondary btn-sm">My Account</a>
+    <a href="/me" class="btn btn-secondary btn-sm" id="header-account-btn">My Account</a>
   </header>
-  <main class="container" style="padding-top:2rem; padding-bottom:4rem">
+
+  <main class="container" style="padding-top:1.5rem">
     <div x-data="createEvent()" x-init="init()">
 
       <!-- FORM STEP -->
       <div x-show="step === 'form'">
-        <h1 style="font-size:1.75rem; font-weight:700; margin-bottom:1.5rem;">Create a Scheduling Event</h1>
+        <div class="create-layout">
 
-        <!-- Basic Info Card -->
-        <div class="card">
-          <div class="form-group">
-            <label for="event-title">Event Title <span style="color:var(--color-no)">*</span></label>
-            <input
-              id="event-title"
-              type="text"
-              class="input"
-              placeholder="e.g. Team Standup, Dinner Plans..."
-              x-model="title"
-              maxlength="200"
-            >
-          </div>
-          <div class="form-group" style="margin-bottom:0">
-            <label for="event-desc">Description <span class="text-muted text-sm">(optional)</span></label>
-            <textarea
-              id="event-desc"
-              class="input"
-              placeholder="Any details respondents should know..."
-              x-model="description"
-              maxlength="1000"
-            ></textarea>
-          </div>
-        </div>
+          <!-- Left: form -->
+          <div class="create-col-main">
 
-        <!-- Timezone Card -->
-        <div class="card">
-          <div class="form-group" style="margin-bottom:0">
-            <label for="event-tz">Timezone</label>
-            <select id="event-tz" class="input" x-model="timezone">
-              <optgroup label="Americas">
-                <option value="America/New_York">Eastern Time — America/New_York</option>
-                <option value="America/Chicago">Central Time — America/Chicago</option>
-                <option value="America/Denver">Mountain Time — America/Denver</option>
-                <option value="America/Los_Angeles">Pacific Time — America/Los_Angeles</option>
-                <option value="America/Anchorage">Alaska — America/Anchorage</option>
-                <option value="America/Honolulu">Hawaii — America/Honolulu</option>
-                <option value="America/Toronto">Toronto — America/Toronto</option>
-                <option value="America/Vancouver">Vancouver — America/Vancouver</option>
-                <option value="America/Sao_Paulo">São Paulo — America/Sao_Paulo</option>
-                <option value="America/Argentina/Buenos_Aires">Buenos Aires — America/Argentina/Buenos_Aires</option>
-              </optgroup>
-              <optgroup label="Europe">
-                <option value="Europe/London">London — Europe/London</option>
-                <option value="Europe/Paris">Paris — Europe/Paris</option>
-                <option value="Europe/Berlin">Berlin — Europe/Berlin</option>
-                <option value="Europe/Madrid">Madrid — Europe/Madrid</option>
-                <option value="Europe/Rome">Rome — Europe/Rome</option>
-                <option value="Europe/Amsterdam">Amsterdam — Europe/Amsterdam</option>
-                <option value="Europe/Stockholm">Stockholm — Europe/Stockholm</option>
-                <option value="Europe/Moscow">Moscow — Europe/Moscow</option>
-              </optgroup>
-              <optgroup label="Africa">
-                <option value="Africa/Cairo">Cairo — Africa/Cairo</option>
-                <option value="Africa/Johannesburg">Johannesburg — Africa/Johannesburg</option>
-              </optgroup>
-              <optgroup label="Asia">
-                <option value="Asia/Dubai">Dubai — Asia/Dubai</option>
-                <option value="Asia/Kolkata">Kolkata — Asia/Kolkata</option>
-                <option value="Asia/Bangkok">Bangkok — Asia/Bangkok</option>
-                <option value="Asia/Singapore">Singapore — Asia/Singapore</option>
-                <option value="Asia/Tokyo">Tokyo — Asia/Tokyo</option>
-                <option value="Asia/Seoul">Seoul — Asia/Seoul</option>
-                <option value="Asia/Shanghai">Shanghai — Asia/Shanghai</option>
-              </optgroup>
-              <optgroup label="Australia &amp; Pacific">
-                <option value="Australia/Sydney">Sydney — Australia/Sydney</option>
-                <option value="Australia/Melbourne">Melbourne — Australia/Melbourne</option>
-                <option value="Pacific/Auckland">Auckland — Pacific/Auckland</option>
-              </optgroup>
-            </select>
-          </div>
-        </div>
-
-        <!-- Availability Window Card -->
-        <div class="card">
-          <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:.25rem;">Availability Window</h2>
-          <p class="text-muted text-sm mb-2">Respondents can select any day within this range.</p>
-
-          <div class="calendar-wrap">
-            <div class="month-header">
-              <button class="month-nav-btn" @click="prevMonth()">&#8249;</button>
-              <span x-text="pickerMonthLabel"></span>
-              <button class="month-nav-btn" @click="nextMonth()">&#8250;</button>
+            <!-- Basics -->
+            <div class="card">
+              <div class="card-title">Event details</div>
+              <div class="card-hint">Give this scheduling event a name and optional context.</div>
+              <div class="form-group">
+                <label for="event-title">Title</label>
+                <input id="event-title" type="text" class="input"
+                  placeholder="e.g. Team dinner, Kickoff meeting…"
+                  x-model="title" maxlength="200" autofocus>
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label for="event-desc">Description <span class="text-xs text-muted" style="text-transform:none;font-weight:400">(optional)</span></label>
+                <textarea id="event-desc" class="input"
+                  placeholder="Anything respondents should know…"
+                  x-model="description" maxlength="1000" rows="2"></textarea>
+              </div>
             </div>
-            <div class="cal-grid">
-              <div class="cal-day-header">Su</div>
-              <div class="cal-day-header">Mo</div>
-              <div class="cal-day-header">Tu</div>
-              <div class="cal-day-header">We</div>
-              <div class="cal-day-header">Th</div>
-              <div class="cal-day-header">Fr</div>
-              <div class="cal-day-header">Sa</div>
-              <template x-for="(cell, idx) in pickerCells" :key="idx">
-                <div
-                  :class="getCellClass(cell)"
-                  @click="pickDate(cell)"
-                  x-text="cell.blank ? '' : cell.day"
-                ></div>
-              </template>
+
+            <!-- Timezone -->
+            <div class="card">
+              <div class="form-group" style="margin-bottom:0">
+                <label for="event-tz">Timezone</label>
+                <select id="event-tz" class="input" x-model="timezone">
+                  <optgroup label="Americas">
+                    <option value="America/New_York">Eastern — America/New_York</option>
+                    <option value="America/Chicago">Central — America/Chicago</option>
+                    <option value="America/Denver">Mountain — America/Denver</option>
+                    <option value="America/Los_Angeles">Pacific — America/Los_Angeles</option>
+                    <option value="America/Anchorage">Alaska</option>
+                    <option value="America/Honolulu">Hawaii</option>
+                    <option value="America/Toronto">Toronto</option>
+                    <option value="America/Vancouver">Vancouver</option>
+                    <option value="America/Sao_Paulo">São Paulo</option>
+                    <option value="America/Argentina/Buenos_Aires">Buenos Aires</option>
+                  </optgroup>
+                  <optgroup label="Europe">
+                    <option value="Europe/London">London</option>
+                    <option value="Europe/Paris">Paris</option>
+                    <option value="Europe/Berlin">Berlin</option>
+                    <option value="Europe/Madrid">Madrid</option>
+                    <option value="Europe/Rome">Rome</option>
+                    <option value="Europe/Amsterdam">Amsterdam</option>
+                    <option value="Europe/Stockholm">Stockholm</option>
+                    <option value="Europe/Moscow">Moscow</option>
+                  </optgroup>
+                  <optgroup label="Africa">
+                    <option value="Africa/Cairo">Cairo</option>
+                    <option value="Africa/Johannesburg">Johannesburg</option>
+                  </optgroup>
+                  <optgroup label="Asia">
+                    <option value="Asia/Dubai">Dubai</option>
+                    <option value="Asia/Kolkata">Kolkata</option>
+                    <option value="Asia/Bangkok">Bangkok</option>
+                    <option value="Asia/Singapore">Singapore</option>
+                    <option value="Asia/Tokyo">Tokyo</option>
+                    <option value="Asia/Seoul">Seoul</option>
+                    <option value="Asia/Shanghai">Shanghai</option>
+                  </optgroup>
+                  <optgroup label="Australia &amp; Pacific">
+                    <option value="Australia/Sydney">Sydney</option>
+                    <option value="Australia/Melbourne">Melbourne</option>
+                    <option value="Pacific/Auckland">Auckland</option>
+                  </optgroup>
+                </select>
+              </div>
             </div>
-          </div>
 
-          <p class="text-sm mt-2" :class="window_start && window_end ? 'text-muted' : 'text-muted'" x-text="pickerInstructions"></p>
-        </div>
+            <!-- Date range picker -->
+            <div class="card">
+              <div class="card-title">Date range</div>
+              <div class="card-hint">Pick the first and last possible day for this event. Respondents choose their availability within this window.</div>
 
-        <!-- Daily Time Bounds Card -->
-        <div class="card">
-          <h2 style="font-size:1.1rem; font-weight:600; margin-bottom:.25rem;">Daily Time Bounds</h2>
-          <p class="text-muted text-sm mb-2">Respondents can mark availability between these hours each day.</p>
-          <div class="flex gap-2 items-center" style="flex-wrap:wrap">
-            <div class="form-group" style="flex:1; min-width:140px; margin-bottom:0">
-              <label>Start Hour</label>
-              <select class="input" x-model.number="day_start_hour">
-                <template x-for="opt in hourOptions" :key="opt.value">
-                  <option :value="opt.value" x-text="opt.label"></option>
+              <div class="step-picker">
+                <span class="step-pill" :class="pickerStep === 'start' ? 'active' : (window_start ? 'done' : '')">
+                  1 · Start date
+                </span>
+                <span class="step-pill" :class="pickerStep === 'end' ? 'active' : (window_end ? 'done' : '')">
+                  2 · End date
+                </span>
+              </div>
+
+              <div class="month-header">
+                <button class="month-nav-btn" @click="prevMonth()" :disabled="!canGoPrev">&#8249;</button>
+                <span class="month-label" x-text="pickerMonthLabel"></span>
+                <button class="month-nav-btn" @click="nextMonth()">&#8250;</button>
+              </div>
+
+              <div class="cal-grid">
+                <div class="cal-day-header">Su</div>
+                <div class="cal-day-header">Mo</div>
+                <div class="cal-day-header">Tu</div>
+                <div class="cal-day-header">We</div>
+                <div class="cal-day-header">Th</div>
+                <div class="cal-day-header">Fr</div>
+                <div class="cal-day-header">Sa</div>
+                <template x-for="(cell, idx) in pickerCells" :key="idx">
+                  <div :class="getCellClass(cell)" @click="pickDate(cell)" x-text="cell.blank ? '' : cell.day"></div>
                 </template>
-              </select>
-            </div>
-            <div style="padding-top:1.5rem; color:var(--color-text-muted)">to</div>
-            <div class="form-group" style="flex:1; min-width:140px; margin-bottom:0">
-              <label>End Hour</label>
-              <select class="input" x-model.number="day_end_hour">
-                <template x-for="opt in hourOptions" :key="opt.value">
-                  <option :value="opt.value" x-text="opt.label"></option>
+              </div>
+
+              <div class="range-hint">
+                <template x-if="window_start && window_end">
+                  <span>
+                    <strong x-text="fmtDate(window_start)"></strong>
+                    &nbsp;→&nbsp;
+                    <strong x-text="fmtDate(window_end)"></strong>
+                    &nbsp;·&nbsp;
+                    <span x-text="rangeDays + ' days'"></span>
+                    &nbsp;
+                    <button class="btn btn-ghost btn-sm" @click="clearDates()" style="font-size:.72rem;padding:.15rem .5rem;margin-left:.25rem">Clear</button>
+                  </span>
                 </template>
-              </select>
+                <template x-if="!(window_start && window_end)">
+                  <span x-text="pickerStep === 'start' ? 'Click a day to set the start date' : 'Now click the last day of this event window'"></span>
+                </template>
+              </div>
+            </div>
+
+            <!-- Daily hours — pill range slider -->
+            <div class="card">
+              <div class="card-title">Daily hours</div>
+              <div class="card-hint">
+                Set the earliest and latest hour respondents can mark availability each day.
+                Drag the pills to adjust, or click anywhere on the bar.
+              </div>
+
+              <div class="time-range-outer">
+                <div class="time-range-track" id="time-track"
+                  @mousedown="trackClick($event)"
+                  @touchstart.prevent="trackClick($event)">
+                  <div class="time-range-fill" id="time-fill"></div>
+                  <div class="time-range-inner" id="time-inner">
+                    <template x-for="h in 24" :key="h">
+                      <div class="time-segment" :class="isInRange(h-1) ? 'in-range' : ''"></div>
+                    </template>
+                  </div>
+                </div>
+                <div class="time-handles-row">
+                  <div class="time-handle-pill" id="handle-start"
+                    :class="dragging === 'start' ? 'dragging' : ''"
+                    @mousedown.stop="startDrag('start', $event)"
+                    @touchstart.stop.prevent="startDrag('start', $event)"
+                    x-text="formatHour(day_start_hour)"></div>
+                  <span class="time-between-label" x-text="day_end_hour - day_start_hour + ' hrs'"></span>
+                  <div class="time-handle-pill" id="handle-end"
+                    :class="dragging === 'end' ? 'dragging' : ''"
+                    @mousedown.stop="startDrag('end', $event)"
+                    @touchstart.stop.prevent="startDrag('end', $event)"
+                    x-text="formatHour(day_end_hour)"></div>
+                </div>
+              </div>
+            </div>
+
+            <div x-show="error" class="alert alert-error mt-2" x-text="error"></div>
+
+            <div class="mt-2" style="display:flex;gap:.75rem;align-items:center">
+              <button class="btn btn-primary btn-lg" style="flex:1"
+                :disabled="!canSubmit || loading"
+                @click="goConfirm()">
+                Review &amp; confirm →
+              </button>
+            </div>
+
+          </div><!-- end col-main -->
+
+          <!-- Right: live preview -->
+          <div class="create-preview">
+            <div class="preview-label">Preview</div>
+            <div class="preview-title" x-text="title || '—'"></div>
+            <div class="preview-desc" x-text="description || ' '"></div>
+            <hr class="preview-divider">
+
+            <div class="preview-row">
+              <svg class="preview-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <rect x="2" y="3" width="12" height="11" rx="2"/><line x1="5" y1="1" x2="5" y2="5"/><line x1="11" y1="1" x2="11" y2="5"/><line x1="2" y1="7" x2="14" y2="7"/>
+              </svg>
+              <span>
+                <template x-if="window_start && window_end">
+                  <span class="preview-val" x-text="fmtDate(window_start) + ' – ' + fmtDate(window_end)"></span>
+                </template>
+                <template x-if="!(window_start && window_end)">
+                  <span class="preview-empty">No dates selected</span>
+                </template>
+              </span>
+            </div>
+
+            <div class="preview-row">
+              <svg class="preview-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="8" cy="8" r="6"/><line x1="8" y1="4" x2="8" y2="8"/><line x1="8" y1="8" x2="11" y2="10"/>
+              </svg>
+              <span class="preview-val" x-text="formatHour(day_start_hour) + ' – ' + formatHour(day_end_hour)"></span>
+            </div>
+
+            <div class="preview-row">
+              <svg class="preview-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="8" cy="8" r="6"/><line x1="8" y1="1" x2="8" y2="3"/><line x1="8" y1="13" x2="8" y2="15"/><line x1="1" y1="8" x2="3" y2="8"/><line x1="13" y1="8" x2="15" y2="8"/>
+              </svg>
+              <span class="preview-val" x-text="timezone"></span>
+            </div>
+
+            <hr class="preview-divider">
+            <div class="preview-label" style="margin-bottom:.5rem">Checklist</div>
+            <div class="preview-checklist">
+              <div class="preview-check">
+                <div class="check-dot" :class="title.trim() ? 'done' : ''"></div>
+                <span>Title</span>
+              </div>
+              <div class="preview-check">
+                <div class="check-dot" :class="window_start && window_end ? 'done' : ''"></div>
+                <span>Date range</span>
+              </div>
+              <div class="preview-check">
+                <div class="check-dot done"></div>
+                <span>Daily hours</span>
+              </div>
+              <div class="preview-check">
+                <div class="check-dot done"></div>
+                <span>Timezone</span>
+              </div>
+            </div>
+          </div><!-- end preview -->
+
+        </div><!-- end create-layout -->
+      </div><!-- end form step -->
+
+      <!-- CONFIRM STEP -->
+      <div x-show="step === 'confirm'" x-cloak>
+        <div style="max-width:560px;margin:0 auto">
+          <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem">
+            <button class="btn btn-ghost" @click="step='form'">&#8592; Edit</button>
+            <h1 style="font-size:1.25rem;font-weight:700;letter-spacing:-.02em">Confirm event</h1>
+          </div>
+
+          <div class="card">
+            <div class="card-title" style="margin-bottom:.5rem">Review your event</div>
+            <div class="confirm-row">
+              <span class="confirm-key">Title</span>
+              <span class="confirm-val" x-text="title"></span>
+            </div>
+            <div class="confirm-row" x-show="description">
+              <span class="confirm-key">Description</span>
+              <span class="confirm-val" x-text="description"></span>
+            </div>
+            <div class="confirm-row">
+              <span class="confirm-key">Date range</span>
+              <span class="confirm-val" x-text="fmtDate(window_start) + ' → ' + fmtDate(window_end) + ' (' + rangeDays + ' days)'"></span>
+            </div>
+            <div class="confirm-row">
+              <span class="confirm-key">Daily hours</span>
+              <span class="confirm-val" x-text="formatHour(day_start_hour) + ' – ' + formatHour(day_end_hour)"></span>
+            </div>
+            <div class="confirm-row">
+              <span class="confirm-key">Timezone</span>
+              <span class="confirm-val" x-text="timezone"></span>
             </div>
           </div>
-          <p x-show="day_end_hour <= day_start_hour" class="alert alert-error mt-2" style="margin-bottom:0">End hour must be after start hour.</p>
-        </div>
 
-        <!-- Error Alert -->
-        <div x-show="error" class="alert alert-error mt-2" x-text="error"></div>
+          <div class="alert alert-info mt-2">
+            After creating, you'll get a <strong>share link</strong> to send to respondents, and an <strong>admin token</strong> to manage the event. Save both.
+          </div>
 
-        <!-- Submit Button -->
-        <div class="mt-3">
-          <button
-            class="btn btn-primary btn-full"
-            :disabled="!canSubmit || loading"
-            @click="submit()"
-          >
-            <span x-show="loading" class="spinner"></span>
-            <span x-text="loading ? 'Creating...' : 'Create Event'"></span>
-          </button>
+          <div x-show="error" class="alert alert-error" x-text="error"></div>
+
+          <div style="display:flex;gap:.75rem;margin-top:.75rem">
+            <button class="btn btn-secondary" @click="step='form'">← Edit</button>
+            <button class="btn btn-primary btn-lg" style="flex:1"
+              :disabled="loading"
+              @click="submit()">
+              <span x-show="loading" class="spinner"></span>
+              <span x-text="loading ? 'Creating…' : 'Create event'"></span>
+            </button>
+          </div>
         </div>
-      </div>
+      </div><!-- end confirm step -->
 
       <!-- SUCCESS STEP -->
       <div x-show="step === 'success'" x-cloak>
-        <div class="card">
-          <div class="alert alert-success mb-2">
-            Event created successfully!
-          </div>
+        <div style="max-width:520px;margin:0 auto">
+          <div class="alert alert-success mb-2">Event created!</div>
 
-          <h2 style="font-size:1.25rem; font-weight:700; margin-bottom:1.25rem;">Event created!</h2>
+          <div class="card">
+            <div class="form-group">
+              <label>Share URL</label>
+              <p class="text-xs text-muted mb-1">Send this to everyone you want responses from.</p>
+              <div class="token-row">
+                <div class="token-box" style="flex:1" x-text="result && result.share_url"></div>
+                <button class="btn btn-secondary btn-sm copy-btn"
+                  @click="copy(result.share_url, 'copiedShare')"
+                  x-text="copiedShare ? 'Copied!' : 'Copy'"></button>
+              </div>
+            </div>
 
-          <div class="form-group">
-            <label>Share URL</label>
-            <p class="text-sm text-muted mb-1">Send this link to people you want to invite.</p>
-            <div class="token-row">
-              <div class="token-box" style="flex:1" x-text="result && result.share_url"></div>
-              <button
-                class="btn btn-secondary btn-sm copy-btn"
-                @click="copy(result.share_url, 'copiedShare')"
-                x-text="copiedShare ? 'Copied!' : 'Copy'"
-              ></button>
+            <div class="form-group" style="margin-bottom:0">
+              <label>Admin token</label>
+              <p class="text-xs text-muted mb-1">Keep this secret — it lets you manage and delete the event.</p>
+              <div class="token-row">
+                <div class="token-box" style="flex:1" x-text="result && result.admin_token"></div>
+                <button class="btn btn-secondary btn-sm copy-btn"
+                  @click="copy(result.admin_token, 'copiedAdmin')"
+                  x-text="copiedAdmin ? 'Copied!' : 'Copy'"></button>
+              </div>
             </div>
           </div>
 
-          <div class="form-group">
-            <label>Admin Token</label>
-            <p class="text-sm text-muted mb-1">Keep this secret — it lets you manage and delete the event.</p>
-            <div class="token-row">
-              <div class="token-box" style="flex:1" x-text="result && result.admin_token"></div>
-              <button
-                class="btn btn-secondary btn-sm copy-btn"
-                @click="copy(result.admin_token, 'copiedAdmin')"
-                x-text="copiedAdmin ? 'Copied!' : 'Copy'"
-              ></button>
-            </div>
+          <div class="alert alert-warning mt-2">
+            &#9888; Save your admin token now — it will not be shown again.
           </div>
 
-          <div class="alert alert-warning" style="margin-bottom:1rem">
-            &#9888; Save your admin token now — it will not be shown again. You need it to manage or delete this event.
-          </div>
-
-          <a
-            class="btn btn-primary"
-            :href="result && '/e/' + result.event_id"
-          >View your event &rarr;</a>
+          <a class="btn btn-primary btn-lg btn-full mt-2"
+            :href="result && '/e/' + result.event_id">
+            View event →
+          </a>
         </div>
       </div>
 
     </div>
   </main>
+
   <script defer src="/static/alpine.min.js" integrity="sha384-pb6hrQvo4s23cEUFtj0CZkzGE3jyK3pj26RIupXXxhSrrcUA/Cn0lZgcCrGH0t6L" crossorigin="anonymous"></script>
   <script src="/static/create.js"></script>
+  <script>
+    // Show account name in header if logged in
+    const u = localStorage.getItem('session_username');
+    if (u) {
+      const btn = document.getElementById('header-account-btn');
+      if (btn) btn.textContent = u;
+    }
+  </script>
 </body>
 </html>
